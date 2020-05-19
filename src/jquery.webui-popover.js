@@ -76,7 +76,6 @@
         var _srcElements = [];
         var backdrop = $('<div class="webui-popover-backdrop"></div>');
         var _globalIdSeed = 0;
-        var _isBodyEventHandled = false;
         var _offsetOut = -2000; // the value offset  out of the screen
         var $document = $(document);
 
@@ -236,6 +235,7 @@
                     backdrop.hide();
                 }
                 this._opened = false;
+                this.unbindBodyEvents();
                 this.$element.trigger('hidden.' + pluginType, [this.$target]);
 
                 if (this.options.onHide) {
@@ -305,7 +305,7 @@
             },
             displayContent: function() {
                 var
-                //element postion
+                    //element postion
                     elementPos = this.getElementPosition(),
                     //target postion
                     $target = this.getTarget().removeClass().addClass(pluginClass).addClass(this._customTargetClass),
@@ -644,16 +644,33 @@
             },
 
             bindBodyEvents: function() {
-                if (_isBodyEventHandled) {
-                    return;
-                }
                 if (this.options.dismissible && this.getTrigger() === 'click') {
-                    $document.off('keyup.webui-popover').on('keyup.webui-popover', $.proxy(this.escapeHandler, this));
-                    $document.off('click.webui-popover touchend.webui-popover')
-                        .on('click.webui-popover touchend.webui-popover', $.proxy(this.bodyClickHandler, this));
+                    if (!this.attachedEscapeHandler) {
+                        this.attachedEscapeHandler = this.escapeHandler.bind(this);
+                        document.addEventListener('keyup', this.attachedEscapeHandler);
+                    }
+                    if (!this.attachedBodyClickHandler) {
+                        this.attachedBodyClickHandler = this.bodyClickHandler.bind(this);
+                        document.addEventListener('click', this.attachedBodyClickHandler);
+                        document.addEventListener('touchend', this.attachedBodyClickHandler);
+                    }
                 } else if (this.getTrigger() === 'hover') {
-                    $document.off('touchend.webui-popover')
-                        .on('touchend.webui-popover', $.proxy(this.bodyClickHandler, this));
+                    if (!this.attachedBodyClickHandler) {
+                        this.attachedBodyClickHandler = this.bodyClickHandler.bind(this);
+                        document.addEventListener('touchend', this.attachedBodyClickHandler);
+                    }
+                }
+            },
+
+            unbindBodyEvents: function() {
+                if (this.attachedEscapeHandler) {
+                    document.removeEventListener('keyup', this.attachedEscapeHandler);
+                    this.attachedEscapeHandler = null;
+                }
+                if (this.attachedBodyClickHandler) {
+                    document.removeEventListener('click', this.attachedBodyClickHandler);
+                    document.removeEventListener('touchend', this.attachedBodyClickHandler);
+                    this.attachedBodyClickHandler = null;
                 }
             },
 
@@ -684,7 +701,6 @@
             },
 
             bodyClickHandler: function(e) {
-                _isBodyEventHandled = true;
                 var canHide = true;
                 for (var i = 0; i < _srcElements.length; i++) {
                     var pop = getPopFromElement(_srcElements[i]);
